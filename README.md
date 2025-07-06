@@ -2,6 +2,16 @@
 
 This script fits ordinary least squares models for variables found in an Excel worksheet. It automatically searches for columns named like `x1`, `y1`, etc., tries several transformations, removes insignificant predictors and outputs the results to a new Excel file.
 
+## Installation
+
+Install dependencies with:
+
+```bash
+pip install -r requirements.txt
+```
+
+**Note:** `scipy>=1.11` is required for compatibility with statsmodels.
+
 ## Usage
 
 ```
@@ -32,4 +42,19 @@ The output workbook contains summary statistics as well as coefficient and p‑v
    - Refit until all remaining terms are significant.
 5. **Export Results**
    - Summaries, coefficients and p-values are written to the output Excel workbook.
+
+
+## Troubleshooting
+
+If you encounter an error like:
+
+```
+ImportError: cannot import name '_lazywhere' from 'scipy._lib._util'
+```
+
+make sure you have upgraded **SciPy** to at least version 1.11:
+
+```bash
+pip install --upgrade "scipy>=1.11"
+```
 

@@ -3,6 +3,11 @@ import re
 import argparse
 import logging
 
+import scipy
+from packaging import version
+if version.parse(scipy.__version__) < version.parse("1.11"):
+    raise ImportError(f"SciPy >= 1.11 required, found {scipy.__version__}")
+
 import pandas as pd
 import numpy as np
 import statsmodels.formula.api as smf
