@@ -1,8 +1,21 @@
 import os
 import re
+import argparse
+import logging
+
 import pandas as pd
 import numpy as np
 import statsmodels.formula.api as smf
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="OLS fitting with reselection")
+    parser.add_argument("--input", help="Input Excel file path")
+    parser.add_argument("--output", default="regression_results.xlsx", help="Output Excel file")
+    parser.add_argument("--alpha", type=float, default=0.05, help="Significance threshold for predictor removal")
+    parser.add_argument("--transforms", default="linear,log,exp,power",
+                        help="Comma-separated list of transforms to try")
+    return parser.parse_args()
 
 # === Helper functions for model selection & refinement ===
 def select_best_transform(X, y, transforms=('linear','log','exp','power')):
@@ -11,6 +24,7 @@ def select_best_transform(X, y, transforms=('linear','log','exp','power')):
     """
     best_type, best_r2, best_model = None, -np.inf, None
     for t in transforms:
+        logging.info("Trying %s transform", t)
         df = X.copy()
         df['y'] = y
         if t == 'linear':
@@ -39,7 +53,7 @@ def select_best_transform(X, y, transforms=('linear','log','exp','power')):
     return best_type, best_model
 
 
-def refine_with_reselection(X, y, alpha=0.05):
+def refine_with_reselection(X, y, alpha=0.05, transforms=('linear','log','exp','power')):
     """
     Iteratively select best transform, drop highest-p predictor until all p <= alpha.
     Returns final transform type and fitted model.
@@ -48,13 +62,15 @@ def refine_with_reselection(X, y, alpha=0.05):
     final_type, final_model = None, None
 
     while predictors:
-        ttype, model = select_best_transform(X[predictors], y)
-        pvals = model.pvalues.drop('Intercept', errors='ignore')
+        logging.info("Fitting with predictors: %s", ', '.join(predictors))
+        ttype, model = select_best_transform(X[predictors], y, transforms)
+        pvals = model.pvalues.drop('Intercept', errors='ignore').dropna()
         if pvals.empty or pvals.max() <= alpha:
             final_type, final_model = ttype, model
             break
         # drop worst predictor and retry
         worst = pvals.idxmax()
+        logging.info("Dropping %s (p=%.3f)", worst, pvals[worst])
         predictors.remove(worst)
 
     # if no predictors left, fit intercept-only
@@ -66,16 +82,17 @@ def refine_with_reselection(X, y, alpha=0.05):
     return final_type, final_model
 
 
-def fit_all_resel(Y, X, alpha=0.05):
+def fit_all_resel(Y, X, alpha=0.05, transforms=('linear','log','exp','power')):
     """
     Fit for each response column in Y with predictors X.
     Returns a dict of summary info.
     """
     results = {}
     for resp in Y.columns:
+        logging.info("Processing response %s", resp)
         y = Y[resp]
-        init_type, init_model = select_best_transform(X, y)
-        final_type, final_model = refine_with_reselection(X, y, alpha)
+        init_type, init_model = select_best_transform(X, y, transforms)
+        final_type, final_model = refine_with_reselection(X, y, alpha, transforms)
         # collate summary
         coef = final_model.params.to_dict()
         results[resp] = {
@@ -91,14 +108,16 @@ def fit_all_resel(Y, X, alpha=0.05):
 
 
 # === Main execution ===
-def main(input_file=None, output_file='regression_results.xlsx'):
-    # locate input Excel if not provided
+def main(args):
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(message)s")
+
+    input_file = args.input
     if input_file is None:
         files = [f for f in os.listdir('.') if f.lower().endswith(('.xlsx','.xls'))]
         if not files:
             raise FileNotFoundError("No Excel file found in directory.")
         input_file = files[0]
-        print(f"Using input file: {input_file}")
+        logging.info("Using input file: %s", input_file)
 
     # read data
     df = pd.read_excel(input_file)
@@ -114,10 +133,10 @@ def main(input_file=None, output_file='regression_results.xlsx'):
     Y = df[[c for c in vars_found if c.lower().startswith('y')]]
 
     # fit models
-    summary = fit_all_resel(Y, X)
+    summary = fit_all_resel(Y, X, alpha=args.alpha, transforms=args.transforms)
 
     # prepare output Excel
-    with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
+    with pd.ExcelWriter(args.output, engine='openpyxl') as writer:
         # summary sheet
         summary_rows = []
         for resp, info in summary.items():
@@ -143,7 +162,9 @@ def main(input_file=None, output_file='regression_results.xlsx'):
         ).T
         pval_df.to_excel(writer, sheet_name='P-values')
 
-    print(f"Results written to {output_file}")
+    logging.info("Results written to %s", args.output)
 
 if __name__ == '__main__':
-    main()
+    args = parse_args()
+    args.transforms = [t.strip() for t in args.transforms.split(',') if t.strip()]
+    main(args)
