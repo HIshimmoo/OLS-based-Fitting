@@ -9,9 +9,9 @@ This README explains how to use and understand the `loo_cv_regression.py` script
 * **Goal:** Automatically select the best combination of predictors (`x1, x2, …`) and data transforms (linear, log, exp, power, reciprocal) that maximizes out-of-sample predictive performance on one or more responses (`y1, y2, …`).
 * **Core metric:** **LOO‑Q²**, the cross‑validated coefficient of determination:
 
-  $$
-    Q^2 = 1 - \frac{\sum_i (y_i - \hat y_{-i})^2}{\sum_i (y_i - \bar y)^2}
-  $$
+  
+    $$Q^2 = 1 - \frac{\sum_i (y_i - \hat y_{-i})^2}{\sum_i (y_i - \bar y)^2}$$  
+
 
   where $\hat y_{-i}$ is the prediction for $y_i$ from a model trained without the $i^{th}$ point.
 
