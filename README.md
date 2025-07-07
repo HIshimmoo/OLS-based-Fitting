@@ -1,89 +1,113 @@
-Here’s a **detailed README** for your code, covering the workflow, logic, and how each step operates.
+# LOO-CV Regression Script
+
+This README explains how to use and understand the `loo_cv_regression.py` script, which performs leave-one-out cross-validated (LOO-CV) model selection over multiple variable subsets and transformations.
 
 ---
 
-# README: OLS Fitting with Multi-Model Screening and Automated Reporting
+## 1. Introduction
 
-## Overview
+* **Goal:** Automatically select the best combination of predictors (`x1, x2, …`) and data transforms (linear, log, exp, power, reciprocal) that maximizes out-of-sample predictive performance on one or more responses (`y1, y2, …`).
+* **Core metric:** **LOO‑Q²**, the cross‑validated coefficient of determination:
 
-This program automates multivariate regression analysis with intelligent model selection and screening. It is designed for scientific data (e.g., materials or process analysis) where you may have several predictors (x1, x2, ...) and several responses (y1, y2, ...). The script provides a transparent, reproducible workflow for variable selection, model fitting, and statistical reporting.
+  $$
+    Q^2 = 1 - \frac{\sum_i (y_i - \hat y_{-i})^2}{\sum_i (y_i - \bar y)^2}
+  $$
 
----
-
-## Workflow & Fitting Logic
-
-### **1. Input Handling**
-
-* The program automatically searches the working directory for the first Excel file (unless `--input` is specified).
-* It expects an Excel file with column names like `x1`, `x2`, ..., `y1`, `y2`, ... (case-insensitive).
-* All `xN` columns are treated as predictors; all `yN` columns as responses.
+  where $\hat y_{-i}$ is the prediction for $y_i$ from a model trained without the $i^{th}$ point.
 
 ---
 
-### **2. Model Selection and Transform Testing**
+## 2. Prerequisites
 
-* For each response (y):
+* **Python 3.7+**
+* **Packages:**
 
-  * The program fits regression models using all specified transforms for x (by default: `linear`, `log`, `exp`, `power`, and optionally `reciprocal`).
-  * For each transform, the data are appropriately transformed and OLS regression is performed.
-  * The transform/model yielding the highest R² (coefficient of determination) for the full multivariate fit is selected as the **best global transform** for y.
+  * `pandas`
+  * `numpy`
+  * `statsmodels`
+  * `scikit-learn` (for `LeaveOneOut`)
+  * `openpyxl` (Excel output)
 
----
+Install via:
 
-### **3. Predictor Screening (Single-X Screening)**
-
-* For each x predictor:
-
-  * A single-variable regression (`y ~ x`) is performed **using the globally selected transform**.
-  * The p-value for each x in this regression is checked.
-  * **Screening threshold:** If the p-value for x is less than the specified alpha (default: 0.05), x is retained for the final multivariate model for this y. Otherwise, it is excluded.
-* The result is a **set of eligible predictors** for each response y.
+```bash
+pip install pandas numpy statsmodels scikit-learn openpyxl
+```
 
 ---
 
-### **4. Final Model Fitting**
+## 3. Usage
 
-* For each response y, a multivariate OLS regression is performed using only the predictors that passed the screening step, and using the selected transform.
-* If no predictors are eligible, an intercept-only model is fit.
-* The regression output includes coefficients, p-values for each coefficient, final model formula, R², and number of predictors used.
+```bash
+python loo_cv_regression.py --input input_data.xlsx --output results.xlsx [--transforms linear,log,...]
+```
 
----
-
-### **5. Best R² Fit (“Full-X” Model)**
-
-* As an additional reference, for each response y, the program fits a multivariate model using **all x predictors** (regardless of p-value), again using the transform that maximizes R².
-* This gives the "best possible" R² fit for y, allowing you to compare the effect of variable screening versus using all predictors.
+* `--input`: Excel file containing columns named `x1, x2, ...` and `y1, y2, ...`. If omitted, the script auto-detects the first `.xls/.xlsx` in the working directory.
+* `--output`: Path for the generated Excel report (default: `regression_results_loo.xlsx`).
+* `--transforms`: Comma-separated list of transforms to test (default: `linear,log,exp,power,reciprocal`).
 
 ---
 
-### **6. Output & Reporting**
+## 4. Methodology
 
-* All results are saved to an Excel file (`regression_results.xlsx` by default) with the following sheets:
+### 4.1. Data Transformations
 
-  * **Summary:** Integrates model formulas, coefficients, p-values, transforms used, R², and number of predictors for each y. Also includes the “best R² fit” formulas and R² for each response.
-  * **Screening P:** Shows the p-value of each x for each y in the screening step.
-  * **\[Optional] Screening\_P\_\[transform]:** If configured, separate sheets with p-values for every (y, x) under every model type.
-* The summary sheet provides an at-a-glance view of all fitted models and their statistical strength.
+Each transform defines how $X$ and/or $Y$ are preprocessed before fitting a linear OLS model:
+
+| Transform      | Applied to X | Applied to Y |
+| -------------- | ------------ | ------------ |
+| **linear**     | raw $x$      | raw $y$      |
+| **log**        | $\log(x)$    | $\log(y)$    |
+| **exp**        | raw $x$      | $\log(y)$    |
+| **power**      | $\log(x)$    | raw $y$      |
+| **reciprocal** | $1/x$        | raw $y$      |
+
+### 4.2. Single-Variable Q² Heatmaps
+
+For diagnostic purposes, the script computes **LOO‑Q²** for each pair `(y_j, x_i)` under each transform:
+
+1. Hold out one sample, fit OLS on the remaining 5, predict the held-out.
+2. Sum squared errors across all 6 holds, compute Q².
+3. Repeat for every `x_i`, every `y_j`, every transform.
+
+These results are written to Excel sheets named `Heatmap_Q2_<transform>` (rows = responses, columns = predictors), allowing you to spot which variables ever beat the naïve mean.
+
+### 4.3. Exhaustive Subset Selection by Q²
+
+The core model-selection does:
+
+1. **Search** all non-empty subsets of the predictor set $\{x_1,\dots,x_p\}$, for each transform.
+2. Compute **multivariate LOO‑Q²** on each subset.
+3. **Select** the single `(subset, transform)` achieving the highest Q².
+
+This guarantees the chosen model has the best cross-validated predictive performance, without any arbitrary p‑value or in-sample R² filtering.
 
 ---
 
-## **Customizing the Workflow**
+## 5. Output Summary (`Best_Model_Q2`)
 
-* **Add new transforms:**
-  Extend the `apply_transform` function to support additional model types (e.g., sqrt, log1p, polynomial).
-* **Change screening threshold:**
-  Use `--alpha` to set the significance level for predictor screening.
-* **Select which transforms to try:**
-  Use `--transforms` with a comma-separated list (e.g., `linear,log,reciprocal`) to control which model types are included.
+The main summary sheet reports, for each response:
+
+| Column                | Description                                                                        |
+| --------------------- | ---------------------------------------------------------------------------------- |
+| **Response**          | e.g. `y1`, `y2`                                                                    |
+| **Best Transform**    | One of: linear, log, exp, power, reciprocal                                        |
+| **Transform Details** | Human‑readable mapping (e.g. `X log(x); Y raw`)                                    |
+| **Best Subset**       | Comma‑separated predictors chosen (e.g. `x2,x3`)                                   |
+| **LOO‑Q2**            | Out‑of‑sample R² for that model                                                    |
+| **R²**                | In‑sample fit R² (for reference)                                                   |
+| **Formula**           | Linear equation in transformed inputs (e.g. `y = 0.49 +0.23*log(x2) -0.05*(1/x3)`) |
 
 ---
 
-## **Fitting Logic Explained**
+## 6. Interpretation and Customization
 
-1. **Transform selection ensures you’re not just fitting a linear model, but you are comparing a family of reasonable models (log-log, semi-log, etc.) for each response and picking the best.**
-2. **Predictor screening uses statistical significance (p-value) in single-x regressions to avoid including noise variables and minimize overfitting.**
-3. **Final fitting uses only the “screened” predictors, maximizing interpretability and avoiding collinearity problems caused by unnecessary variables.**
-4. **A reference “full-x” model is provided so you can see what the theoretical best fit would be, even if it uses weak/noisy variables.**
-5. **All outputs are transparent, exportable, and reviewable—no black boxes.**
+* **Q² cutoff:**  By default, no pre‑screening is enforced. To drop predictors that never beat the mean alone, filter on single‑x Q² (e.g. require `>0`) before subset search.
+* **Field thresholds:**
 
-
+  * Q² > 0.7: Excellent predictive power
+  * Q² 0.5–0.7: Strong
+  * Q² 0.2–0.5: Moderate
+  * Q² ≤ 0.2: Low
+* **Model simplicity:** If two models have nearly equal Q², prefer the one with fewer predictors for robustness.
+* **Further extensions:** Incorporate LASSO/elastic‑net inside each LOO fold for automated shrinkage, or bootstrap‑based stability selection.
