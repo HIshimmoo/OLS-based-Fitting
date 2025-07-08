@@ -60,8 +60,8 @@ python loo_cv_regression.py --input input_data.xlsx --output results.xlsx [--tra
 |  ⇒ $\displaystyle y = e^{\beta_0}\,x^{\beta_1}$ (power‐law)  |                        |                                                             |
 |                            **exp**                           | fit $\ln y$ vs $x$     | $\displaystyle \ln y = \beta_0 + \beta_1\,x$\\              |
 | ⇒ $\displaystyle y = e^{\beta_0+\beta_1 x}=A\,e^{\beta_1 x}$ |                        |                                                             |
-|                           **power**                          | fit $y$ vs $\ln x$     | $\displaystyle y = \beta_0 + \beta_1\ln x$ (semilog–$x$)    |
-|                        **reciprocal**                        | fit $y$ vs $1/x$       | $\displaystyle y = \beta_0 + \beta_1\,\frac1x$ (hyperbolic) |
+|                           **power**                          | fit $y$ vs $\ln x$     | $\displaystyle y = \beta_0 + \beta_1\ln x$                  |
+|                        **reciprocal**                        | fit $y$ vs $1/x$       | $\displaystyle y = \beta_0 + \beta_1\,\frac1x$              |
 
 ---
 
@@ -88,10 +88,10 @@ These results are written to Excel sheets named `Heatmap_Q2_<transform>` (rows =
 
 In every case the code simply does an OLS regression of
 
-$$
-\underbrace{T_y(y)}_{\text{possibly }\ln y\text{ or }y}
-\;=\;\beta_0 \;+\;\sum_i\beta_i\,T_{x}(x_i)
-$$
+
+$$\underbrace{T_y(y)}_{\text{possibly }\ln y\text{ or }y}
+\;=\;\beta_0 \;+\;\sum_i\beta_i\,T_{x}(x_i)$$
+
 
 with the five choices of $T_x,T_y$ tranformation
 
