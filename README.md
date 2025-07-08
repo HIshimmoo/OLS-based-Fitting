@@ -52,15 +52,27 @@ python loo_cv_regression.py --input input_data.xlsx --output results.xlsx [--tra
 
 ### 4.1. Data Transformations
 
-Each transform defines how $X$ and/or $Y$ are preprocessed before fitting a linear OLS model:
 
-| Transform      | Applied to X | Applied to Y |
-| -------------- | ------------ | ------------ |
-| **linear**     | raw $x$      | raw $y$      |
-| **log**        | $\log(x)$    | $\log(y)$    |
-| **exp**        | raw $x$      | $\log(y)$    |
-| **power**      | $\log(x)$    | raw $y$      |
-| **reciprocal** | $1/x$        | raw $y$      |
+|                         **Transform**                        | **What’s fitted**      | **Equivalent model in $(x,y)$**                             |
+| :----------------------------------------------------------: | :--------------------- | :---------------------------------------------------------- |
+|                          **linear**                          | fit $y$ vs $x$         | $\displaystyle y = \beta_0 + \beta_1\,x$                    |
+|                            **log**                           | fit $\ln y$ vs $\ln x$ | $\displaystyle \ln y = \beta_0 + \beta_1\ln x$\\            |
+|  ⇒ $\displaystyle y = e^{\beta_0}\,x^{\beta_1}$ (power‐law)  |                        |                                                             |
+|                            **exp**                           | fit $\ln y$ vs $x$     | $\displaystyle \ln y = \beta_0 + \beta_1\,x$\\              |
+| ⇒ $\displaystyle y = e^{\beta_0+\beta_1 x}=A\,e^{\beta_1 x}$ |                        |                                                             |
+|                           **power**                          | fit $y$ vs $\ln x$     | $\displaystyle y = \beta_0 + \beta_1\ln x$ (semilog–$x$)    |
+|                        **reciprocal**                        | fit $y$ vs $1/x$       | $\displaystyle y = \beta_0 + \beta_1\,\frac1x$ (hyperbolic) |
+
+---
+
+### Visually
+
+* **Linear**: straight line in $(x,y)$.
+* **Power‐law (log–log)**: straight line in $(\ln x,\ln y)$; a curve $y\propto x^b$ in $(x,y)$.
+* **Exponential**: straight line in $(x,\ln y)$; an exponential curve in $(x,y)$.
+* **Semilog-$x$**: straight line in $(\ln x,y)$; a logarithmic rise in $(x,y)$.
+* **Reciprocal**: straight line in $(1/x,y)$; a $1/x$‐type decay in $(x,y)$.
+
 
 ### 4.2. Single-Variable Q² Heatmaps
 
@@ -74,13 +86,14 @@ These results are written to Excel sheets named `Heatmap_Q2_<transform>` (rows =
 
 ### 4.3. Exhaustive Subset Selection by Q²
 
-The core model-selection does:
+In every case the code simply does an OLS regression of
 
-1. **Search** all non-empty subsets of the predictor set $\{x_1,\dots,x_p\}$, for each transform.
-2. Compute **multivariate LOO‑Q²** on each subset.
-3. **Select** the single `(subset, transform)` achieving the highest Q².
+$$
+\underbrace{T_y(y)}_{\text{possibly }\ln y\text{ or }y}
+\;=\;\beta_0 \;+\;\sum_i\beta_i\,T_{x}(x_i)
+$$
 
-This guarantees the chosen model has the best cross-validated predictive performance, without any arbitrary p‑value or in-sample R² filtering.
+with the five choices of $T_x,T_y$ tranformation
 
 ---
 
@@ -90,8 +103,8 @@ The main summary sheet reports, for each response:
 
 | Column                | Description                                                                        |
 | --------------------- | ---------------------------------------------------------------------------------- |
-| **Response**          | e.g. `y1`, `y2`                                                                    |
-| **Best Transform**    | One of: linear, log, exp, power, reciprocal                                        |
+| **Q² screening**      |  Q² for each transformation                                                        |
+| **Best Transform**    | Heat map of optimal single-Variable Q²                                             |
 | **Transform Details** | Human‑readable mapping (e.g. `X log(x); Y raw`)                                    |
 | **Best Subset**       | Comma‑separated predictors chosen (e.g. `x2,x3`)                                   |
 | **LOO‑Q2**            | Out‑of‑sample R² for that model                                                    |
