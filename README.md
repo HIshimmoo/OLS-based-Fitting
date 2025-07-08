@@ -1,4 +1,4 @@
-# LOO-CV Regression Script
+# OLS Ftting
 
 This README explains how to use and understand the `loo_cv_regression.py` script, which performs leave-one-out cross-validated (LOO-CV) model selection over multiple variable subsets and transformations.
 
