@@ -80,9 +80,6 @@ An Excel workbook is produced with these sheets:
 
 ---
 
-## 6. Customization
-
-- Provide a subset of transforms via `--transforms`.
-- Examine heatmaps to gauge predictive power; higher Q² indicates better
-  out-of-sample performance.
+## 6. How to cite
+This Repo is archived on Zenodo: https://doi.org/10.5281/zenodo.17060163
 
