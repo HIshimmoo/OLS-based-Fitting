@@ -81,5 +81,5 @@ An Excel workbook is produced with these sheets:
 ---
 
 ## 6. How to cite
-This Repo is archived on Zenodo: https://doi.org/10.5281/zenodo.17060163
+Release v1.0.0 is archived on Zenodo:: https://doi.org/10.5281/zenodo.17060163
 
