@@ -1,32 +1,25 @@
-# OLS Ftting
+# Leave-One-Out Single-X Regression
 
-This README explains how to use and understand the `loo_cv_regression.py` script, which performs leave-one-out cross-validated (LOO-CV) model selection over multiple variable subsets and transformations.
+This repository contains `loo_cv_regression_singleX.py`, a utility for
+screening single-variable ordinary least squares (OLS) models using
+leave-one-out cross-validation (LOO-CV).
 
 ---
 
 ## 1. Introduction
 
-* **Goal:** Automatically select the best combination of predictors (`x1, x2, …`) and data transforms (linear, log, exp, power, reciprocal) that maximizes out-of-sample predictive performance on one or more responses (`y1, y2, …`).
-* **Core metric:** **LOO‑Q²**, the cross‑validated coefficient of determination:
-
-  
-    $$Q^2 = 1 - \frac{\sum_i (y_i - \hat y_{-i})^2}{\sum_i (y_i - \bar y)^2}$$  
-
-
-  where $\hat y_{-i}$ is the prediction for $y_i$ from a model trained without the $i^{th}$ point.
+- **Goal:** For each response column `yN`, evaluate every predictor `xN`
+  under several transformations and compute LOO-Q².
+- **Result:** The best single-X model for each response along with
+  diagnostic heatmaps and detailed tables.
 
 ---
 
 ## 2. Prerequisites
 
-* **Python 3.7+**
-* **Packages:**
-
-  * `pandas`
-  * `numpy`
-  * `statsmodels`
-  * `scikit-learn` (for `LeaveOneOut`)
-  * `openpyxl` (Excel output)
+- **Python 3.7+**
+- **Packages:** `pandas`, `numpy`, `statsmodels`, `scikit-learn`,
+  `openpyxl`
 
 Install via:
 
@@ -39,87 +32,57 @@ pip install pandas numpy statsmodels scikit-learn openpyxl
 ## 3. Usage
 
 ```bash
-python loo_cv_regression.py --input input_data.xlsx --output results.xlsx [--transforms linear,log,...]
+python loo_cv_regression_singleX.py --input input.xlsx --output results.xlsx --transforms linear,log,exp,reciprocal
 ```
 
-* `--input`: Excel file containing columns named `x1, x2, ...` and `y1, y2, ...`. If omitted, the script auto-detects the first `.xls/.xlsx` in the working directory.
-* `--output`: Path for the generated Excel report (default: `regression_results_loo.xlsx`).
-* `--transforms`: Comma-separated list of transforms to test (default: `linear,log,exp,power,reciprocal`).
+- `--input`: Excel file containing columns named `x1, x2, ...` and
+  `y1, y2, ...`. If omitted, the script uses the first `.xls` or `.xlsx`
+  file in the working directory.
+- `--output`: Name of the generated Excel report (default:
+  `regression_results_singleX.xlsx`).
+- `--transforms`: Comma-separated list of transforms to test. Supported
+  options: `linear`, `log`, `exp`, `reciprocal`.
 
 ---
 
 ## 4. Methodology
 
-### 4.1. Data Transformations
+For each pair `(y_j, x_i)` the script:
 
+1. Applies the specified transformation family.
+2. Fits an OLS model to the remaining `n-1` samples for every holdout.
+3. Computes **LOO-Q²** using `Q² = 1 - PRESS / SST`.
+4. Repeats for all predictors, responses and transforms.
 
-|                         **Transform**                        | **What’s fitted**      | **Equivalent model in $(x,y)$**                             |
-| :----------------------------------------------------------: | :--------------------- | :---------------------------------------------------------- |
-|                          **linear**                          | fit $y$ vs $x$         | $\displaystyle y = \beta_0 + \beta_1\,x$                    |
-|                            **log**                           | fit $\ln y$ vs $\ln x$ | $\displaystyle \ln y = \beta_0 + \beta_1\ln x$\            |
-|  ⇒ $\displaystyle y = e^{\beta_0}\,x^{\beta_1}$ (power‐law)  |                        |                                                             |
-|                            **exp**                           | fit $\ln y$ vs $x$     | $\displaystyle \ln y = \beta_0 + \beta_1\,x$\              |
-| ⇒ $\displaystyle y = e^{\beta_0+\beta_1 x}=A\,e^{\beta_1 x}$ |                        |                                                             |
-|                           **power**                          | fit $y$ vs $\ln x$     | $\displaystyle y = \beta_0 + \beta_1\ln x$                  |
-|                        **reciprocal**                        | fit $y$ vs $1/x$       | $\displaystyle y = \beta_0 + \beta_1\,\frac1x$              |
+Available transforms:
 
----
+| Transform    | X            | Y       |
+|--------------|--------------|---------|
+| `linear`     | raw          | raw     |
+| `log`        | `log10(x)`   | raw     |
+| `exp`        | raw          | `ln(y)` |
+| `reciprocal` | `1/x`        | raw     |
 
-### Visually
-
-* **Linear**: straight line in $(x,y)$.
-* **Power‐law (log–log)**: straight line in $(\ln x,\ln y)$; a curve $y\propto x^b$ in $(x,y)$.
-* **Exponential**: straight line in $(x,\ln y)$; an exponential curve in $(x,y)$.
-* **Semilog-$x$**: straight line in $(\ln x,y)$; a logarithmic rise in $(x,y)$.
-* **Reciprocal**: straight line in $(1/x,y)$; a $1/x$‐type decay in $(x,y)$.
-
-
-### 4.2. Single-Variable Q² Heatmaps
-
-For diagnostic purposes, the script computes **LOO‑Q²** for each pair `(y_j, x_i)` under each transform:
-
-1. Hold out one sample, fit OLS on the remaining 5, predict the held-out.
-2. Sum squared errors across all 6 holds, compute Q².
-3. Repeat for every `x_i`, every `y_j`, every transform.
-
-These results are written to Excel sheets named `Heatmap_Q2_<transform>` (rows = responses, columns = predictors), allowing you to spot which variables ever beat the naïve mean.
-
-### 4.3. Exhaustive Subset Selection by Q²
-
-In every case the code simply does an OLS regression of
-
-
-$T_y(y) = \beta_0 \;+\;\sum_i\beta_i\,T_{x}(x_i)$
-
-
-with the five choices of $T_x,T_y$ tranformation
+*This script evaluates single predictors only; multivariate subset
+selection is not performed.*
 
 ---
 
-## 5. Output Summary (`Best_Model_Q2`)
+## 5. Output
 
-The main summary sheet reports, for each response:
+An Excel workbook is produced with these sheets:
 
-| Column                | Description                                                                        |
-| --------------------- | ---------------------------------------------------------------------------------- |
-| **Q² screening**      |  Q² for each transformation                                                        |
-| **Best Transform**    | Heat map of optimal single-Variable Q²                                             |
-| **Transform Details** | Human‑readable mapping (e.g. `X log(x); Y raw`)                                    |
-| **Best Subset**       | Comma‑separated predictors chosen (e.g. `x2,x3`)                                   |
-| **LOO‑Q2**            | Out‑of‑sample R² for that model                                                    |
-| **R²**                | In‑sample fit R² (for reference)                                                   |
-| **Formula**           | Linear equation in transformed inputs (e.g. `y = 0.49 +0.23*log(x2) -0.05*(1/x3)`) |
+- `Best_Single_Q2`: best Q² per `(y, x)` across transformations.
+- `Heatmap_Q2_<transform>`: LOO-Q² heatmaps for each transform family.
+- `Best_Model`: summary of the top single-X model for each response.
+- `Single_XY_<transform>`: detailed coefficients and statistics for each
+  `(y, x)` pair under that transform.
 
 ---
 
-## 6. Interpretation and Customization
+## 6. Customization
 
-* **Q² cutoff:**  By default, no pre‑screening is enforced. To drop predictors that never beat the mean alone, filter on single‑x Q² (e.g. require `>0`) before subset search.
-* **Field thresholds:**
+- Provide a subset of transforms via `--transforms`.
+- Examine heatmaps to gauge predictive power; higher Q² indicates better
+  out-of-sample performance.
 
-  * Q² > 0.7: Excellent predictive power
-  * Q² 0.5–0.7: Strong
-  * Q² 0.2–0.5: Moderate
-  * Q² ≤ 0.2: Low
-* **Model simplicity:** If two models have nearly equal Q², prefer the one with fewer predictors for robustness.
-* **Further extensions:** Incorporate LASSO/elastic‑net inside each LOO fold for automated shrinkage, or bootstrap‑based stability selection.
